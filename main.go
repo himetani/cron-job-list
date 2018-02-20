@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
@@ -69,31 +70,35 @@ func main() {
 		port = defaultPort
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(dests))
 	for _, dest := range dests {
-		content, err := call(dest.Host, dest.User)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-			os.Exit(1)
-		}
-		fmt.Printf("[Host] %s\n", dest.Host)
-		fmt.Printf("[Content] \n%s\n", content)
+		go call(&wg, dest.Host, dest.User)
 	}
-
+	wg.Wait()
 }
 
-func call(host, user string) (string, error) {
+func call(wg *sync.WaitGroup, host, user string) {
+	defer wg.Done()
 	session, err := NewSession(host, port, user, privateKey)
 	if err != nil {
-		return "", err
+		fmt.Fprintf(os.Stderr, "ERROR: [Host] %s@%s\n", host, user)
 	}
 	defer session.Close()
 
 	bytes, err := session.GetCrontab()
 	if err != nil {
-		return "", err
+		fmt.Fprintf(os.Stderr, "ERROR: [Host] %s@%s\n", host, user)
 	}
 
-	return fmt.Sprintf(string(bytes)), nil
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: [Host] %s@%s\n", host, user)
+		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+	}
+
+	content := fmt.Sprintf(string(bytes))
+	fmt.Printf("[Host] %s@%s\n", user, host)
+	fmt.Printf("[Content] \n%s\n", content)
 }
 
 func showUsage() {

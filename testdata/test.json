@@ -1,4 +1,7 @@
 [{
     "host": "localhost",
     "user": "vagrant"
+},{
+    "host": "localhost",
+    "user": "vagrant"
 }]
